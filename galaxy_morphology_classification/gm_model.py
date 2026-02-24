@@ -20,7 +20,7 @@ def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    print(f"Seed {seed} gesetzt für Reproduzierbarkeit", flush=True)
+    print(f"Seed {seed} set", flush=True)
 
 from gm_datapipeline import load_galaxy_data, get_galaxy_batch
 
@@ -291,10 +291,10 @@ if __name__ == "__main__":
     set_seed(42)
 
     print("Starting training...", flush=True)
-    ml_data = get_galaxy_batch(data, 500)
+    ml_data = get_galaxy_batch(data, 5000)
 
     start_time = time.time()
-    model = train_model(ml_data, epochs=20, batch_size=32)
+    model = train_model(ml_data, epochs=20, batch_size=96)
     end_time = time.time()
 
     training_time = end_time - start_time
