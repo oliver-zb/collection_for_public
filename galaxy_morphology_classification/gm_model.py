@@ -1,28 +1,18 @@
-import torch
-import torchvision.models as models
-import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader, random_split
-from torch.cuda.amp import autocast, GradScaler
-import time
-import random
-import numpy as np
-
-
-def set_seed(seed=42):
-    """set seeds for all relevant libraries to ensure reproducibility of results across runs for model performance comparison"""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    print(f"Seed {seed} set", flush=True)
-
 from gm_datapipeline import load_galaxy_data, get_galaxy_batch
+from torch.cuda.amp import autocast, GradScaler
+import torchvision.models as models
+import torch.optim as optim
+import torch.nn as nn
+import torch
+import time
+
+import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+csv_path = os.path.join(current_dir, 'galaxy-zoo-the-galaxy-challenge', 'training_solutions_rev1', 'training_solutions_rev1.csv')
+images_path = os.path.join(current_dir, 'galaxy-zoo-the-galaxy-challenge', 'images_training_rev1')
 
 #function with 32 bit precision (float32) for training the model.
 def train_model(ml_data, epochs=10, batch_size=32, learning_rate=0.001, val_split=0.15, test_split=0.15, patience=5):
@@ -41,7 +31,7 @@ def train_model(ml_data, epochs=10, batch_size=32, learning_rate=0.001, val_spli
     train_size = len(dataset) - val_size - test_size
     train_dataset, val_dataset, test_dataset = random_split(dataset, [train_size, val_size, test_size])
 
-    # mum workers seems not to help a lot
+    # DataLoader with Windows-compatible settings. may be better to install wsl2
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
@@ -147,7 +137,6 @@ def train_model(ml_data, epochs=10, batch_size=32, learning_rate=0.001, val_spli
 # mixed precision uses float16 float32 for certain operations, which can speed up training and reduce memory usage
 # without significantly affecting model performance. the GradScaler is used to prevent underflow during backpropagation
 # when using float16.
-# drawback: test accuracy is notably lower.
 def train_model_mp(ml_data, epochs=10, batch_size=32, learning_rate=0.001, val_split=0.15, test_split=0.15, patience=5, use_mixed_precision=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -281,20 +270,15 @@ def train_model_mp(ml_data, epochs=10, batch_size=32, learning_rate=0.001, val_s
 
     return model
 
-
-# alternative on windows: data = load_galaxy_data(r'C:\Users\olive\Documents\python_codes\a_github_collection\galaxy_morphology_classification\galaxy-zoo-the-galaxy-challenge\training_solutions_rev1\training_solutions_rev1.csv', r'C:\Users\olive\Documents\python_codes\a_github_collection\galaxy_morphology_classification\galaxy-zoo-the-galaxy-challenge\images_training_rev1')
-data = load_galaxy_data(r'/mnt/c/Users/olive/Documents/python_codes/a_github_collection/galaxy_morphology_classification/galaxy-zoo-the-galaxy-challenge/training_solutions_rev1/training_solutions_rev1.csv', r'/mnt/c/Users/olive/Documents/python_codes/a_github_collection/galaxy_morphology_classification/galaxy-zoo-the-galaxy-challenge/images_training_rev1')
-# ml_data = get_galaxy_batch(data, 1000, transform=transforms.Grayscale(num_output_channels=1))
-
 if __name__ == "__main__":
-
-    set_seed(42)
-
     print("Starting training...", flush=True)
-    ml_data = get_galaxy_batch(data, 5000)
+
+    data = load_galaxy_data(csv_path, images_path)
+    ml_data = get_galaxy_batch(data, 1000)
 
     start_time = time.time()
-    model = train_model(ml_data, epochs=20, batch_size=96)
+    model = train_model(ml_data, epochs=20, batch_size=32, patience=10)
+    # alternative model = train_model_mp(ml_data, epochs=20, batch_size=32)
     end_time = time.time()
 
     training_time = end_time - start_time
